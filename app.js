@@ -14,9 +14,25 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(express.json());
+// Increase payload limit for video uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.raw({ limit: '500mb', type: 'application/octet-stream' }));
 
-// Test route
+// Handle multipart form data (for file uploads)
+app.use((req, res, next) => {
+  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+    // Simulate successful file upload
+    req.body = {
+      success: true,
+      videoId: 'uploaded-video-' + Math.random().toString(36).substr(2, 9),
+      originalName: 'uploaded-video.mp4',
+      size: '25.5 MB'
+    };
+  }
+  next();
+});
+
+// Test routes
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'SUCCESS!', 
@@ -25,7 +41,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Basic API route
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'API is working perfectly!',
@@ -33,18 +48,30 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Simulate video upload
+// Handle video upload (simulate)
 app.post('/api/video/upload', (req, res) => {
-  res.json({
-    success: true,
-    videoId: 'test-video-123',
-    originalName: 'test-video.mp4',
-    size: '25.5 MB',
-    message: 'Upload simulation successful!'
-  });
+  // Check if it's a multipart form upload
+  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+    res.json({
+      success: true,
+      videoId: 'uploaded-video-' + Math.random().toString(36).substr(2, 9),
+      originalName: 'uploaded-video.mp4',
+      size: '25.5 MB',
+      message: 'File upload simulation successful!'
+    });
+  } else {
+    // Handle JSON upload
+    res.json({
+      success: true,
+      videoId: 'test-video-123',
+      originalName: 'test-video.mp4',
+      size: '25.5 MB',
+      message: 'Upload simulation successful!'
+    });
+  }
 });
 
-// Simulate processing
+// Handle processing
 app.post('/api/video/process', (req, res) => {
   const { videoId, variationCount = 5 } = req.body;
   
@@ -56,44 +83,47 @@ app.post('/api/video/process', (req, res) => {
   });
 });
 
-// Simulate status check
+// Handle status check
 app.get('/api/video/status/:jobId', (req, res) => {
-  // Simulate completed job
+  // Always return completed with demo data
+  const variationCount = 3; // Default for demo
+  const results = [];
+  
+  for (let i = 1; i <= variationCount; i++) {
+    results.push({
+      id: `demo-video-${i}`,
+      name: `variation_${i}.mp4`,
+      similarity: Math.floor(Math.random() * 20) + 50, // 50-70%
+      downloadUrl: `/api/video/download/demo-video-${i}`
+    });
+  }
+  
   res.json({
     status: 'completed',
     progress: 100,
-    data: [
-      {
-        id: 'test-video-123_variation_1',
-        name: 'variation_1.mp4',
-        similarity: 62,
-        downloadUrl: '/api/video/download/test-video-123_variation_1'
-      },
-      {
-        id: 'test-video-123_variation_2', 
-        name: 'variation_2.mp4',
-        similarity: 58,
-        downloadUrl: '/api/video/download/test-video-123_variation_2'
-      },
-      {
-        id: 'test-video-123_variation_3',
-        name: 'variation_3.mp4', 
-        similarity: 65,
-        downloadUrl: '/api/video/download/test-video-123_variation_3'
-      }
-    ]
+    data: results
   });
 });
 
-// Simulate download
+// Handle download
 app.get('/api/video/download/:videoId', (req, res) => {
   res.json({
     message: 'Download simulation - in real version this would be the video file',
-    videoId: req.params.videoId
+    videoId: req.params.videoId,
+    success: true
+  });
+});
+
+// Catch all other routes
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Route not found',
+    availableRoutes: ['/health', '/api/test', '/api/video/upload', '/api/video/process']
   });
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Server successfully running on port ${PORT}`);
   console.log(`📡 Health check: http://localhost:${PORT}/health`);
+  console.log(`🎯 API test: http://localhost:${PORT}/api/test`);
 });
